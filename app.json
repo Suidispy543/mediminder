@@ -41,10 +41,18 @@
     },
     "plugins": [
       "expo-font",
-      ["expo-notifications", { "icon": "./assets/notification-icon.png", "color": "#2563EB" }]
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#2563EB"
+        }
+      ]
     ],
     "extra": {
-      "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyCB3mDrc0T302iqZcgnCQxzLXIpj06U6t8"
+      "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBjkHUEkpt3jbBrgoGEeYuqfbngJNXwnlQ",
+      "EXPO_GEMINI_MODEL": "models/gemini-1.5-flash-8b",
+      "HF_API_KEY": "hhf_donkfbmqbOjvisHfHytSRShIYtHsPMSLLa"
     }
   }
 }

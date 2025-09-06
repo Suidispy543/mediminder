@@ -1,11 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "lib": [
-      "ES2020",
-      "DOM"
-    ],
-    "jsx": "react-jsx",
+    "lib": ["ES2020", "DOM"],
+    "jsx": "react-native",
     "moduleResolution": "bundler",
     "strict": true,
     "skipLibCheck": true,
@@ -14,19 +11,9 @@
     "forceConsistentCasingInFileNames": true,
     "noEmit": true,
     "baseUrl": ".",
-    "types": [
-      "react",
-      "react-native"
-    ]
+    "types": ["react", "react-native"]
   },
-  "include": [
-    "App.tsx",
-    "index.ts",
-    "index.tsx",
-    "src/**/*"
-  ],
-  "exclude": [
-    "node_modules"
-  ],
+  "include": ["App.tsx", "index.ts", "index.tsx", "src/**/*"],
+  "exclude": ["node_modules"],
   "extends": "expo/tsconfig.base"
 }

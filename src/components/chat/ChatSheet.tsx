@@ -1,104 +1,86 @@
 // src/components/chat/ChatSheet.tsx
-import React, { useState, useRef, useEffect } from "react";
-import { View, Text, TextInput, Pressable, ScrollView } from "react-native";
-import tw from "../../lib/tw";
-import { askChatbot } from "../../lib/api";
+import React, { useEffect, useRef, useState } from "react";
+import { SafeAreaView, FlatList, View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, ActivityIndicator } from "react-native";
+import { askChatbot } from "../../lib/chatService";
 
 type Msg = { role: "user" | "assistant"; text: string };
 
-export default function ChatSheet() {
-  const [messages, setMessages] = useState<Msg[]>([
-    { role: "assistant", text: "Hi! Ask about meds, schedules, or reports." },
-  ]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
+const GREEN = "#10B981";
 
-  const scrollRef = useRef<ScrollView | null>(null);
+export default function ChatSheet(): JSX.Element {
+  const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", text: "Hi! Ask about meds, schedules, or reports." }]);
+  const [input, setInput] = useState<string>("");
+  const [sending, setSending] = useState<boolean>(false);
+
+  const listRef = useRef<FlatList<Msg> | null>(null);
+  const inputRef = useRef<TextInput | null>(null);
+
   useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: true });
+    const t = setTimeout(() => listRef.current?.scrollToOffset?.({ offset: 0, animated: true }), 50);
+    return () => clearTimeout(t);
   }, [messages.length]);
-
-  const canSend = !sending && input.trim().length > 0;
 
   async function sendMessage() {
     const q = input.trim();
     if (!q || sending) return;
-
-    setMessages((m) => [...m, { role: "user", text: q }]);
     setInput("");
     setSending(true);
+    Keyboard.dismiss();
+    setMessages((m) => [...m, { role: "user", text: q }]);
 
     try {
       const answer = await askChatbot(q);
-      const finalText =
-        (answer && String(answer).trim()) || "⚠️ No answer received.";
-      setMessages((m) => [...m, { role: "assistant", text: finalText }]);
-    } catch (err: any) {
-      console.log("[chat] fetch error:", err?.message || String(err));
-      setMessages((m) => [
-        ...m,
-        { role: "assistant", text: "Sorry, I couldn’t reach the server." },
-      ]);
+      setMessages((m) => [...m, { role: "assistant", text: String(answer ?? "No answer") }]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setMessages((m) => [...m, { role: "assistant", text: `❌ ${msg}` }]);
     } finally {
       setSending(false);
+      setTimeout(() => inputRef.current?.focus?.(), 50);
+      setTimeout(() => listRef.current?.scrollToOffset?.({ offset: 0, animated: true }), 80);
     }
   }
 
-  return (
-    <View style={tw`flex-1`}>
-      <ScrollView
-        ref={scrollRef}
-        style={tw`flex-1 px-4 pt-2`}
-        contentContainerStyle={tw`pb-3`}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        {messages.map((m, i) => {
-          const isUser = m.role === "user";
-          const bubbleBg = isUser
-            ? ((tw.color("brand") as string) || "#2563eb")
-            : ((tw.color("card") as string) || "#ffffff");
-        const textColor = isUser ? "#ffffff" : "#0f172a";
-          return (
-            <View key={i} style={tw`${isUser ? "items-end" : "items-start"} my-1`}>
-              <View
-                style={[
-                  tw`max-w-[85%] rounded-2xl px-4 py-3 border border-border`,
-                  { backgroundColor: bubbleBg, minHeight: 36, justifyContent: "center" },
-                ]}
-              >
-                <Text style={[tw`text-base`, { color: textColor }]}>{m.text}</Text>
-              </View>
-            </View>
-          );
-        })}
-      </ScrollView>
-
-      <View style={tw`flex-row items-center px-4 py-3 border-t border-border bg-card`}>
-        <TextInput
-          value={input}
-          onChangeText={setInput}
-          placeholder="Ask about meds, schedules, reports…"
-          placeholderTextColor={(tw.color("mutetext") as string) || "#9ca3af"}
-          style={tw`flex-1 bg-bg rounded-xl px-3 py-2 text-text`}
-          editable={!sending}
-          returnKeyType="send"
-          enablesReturnKeyAutomatically
-          onSubmitEditing={sendMessage}
-          autoCapitalize="sentences"
-          autoCorrect
-        />
-        <Pressable
-          onPress={sendMessage}
-          disabled={!canSend}
-          style={[
-            tw`ml-2 rounded-xl px-5 py-2`,
-            { backgroundColor: canSend ? ((tw.color("brand") as string) || "#2563eb") : "#9aa6b2" },
-          ]}
-        >
-          <Text style={tw`text-white font-semibold`}>{sending ? "…" : "Send"}</Text>
-        </Pressable>
+  function renderItem({ item }: { item: Msg }) {
+    const isUser = item.role === "user";
+    return (
+      <View style={[styles.row, isUser ? styles.rowUser : styles.rowBot]}>
+        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
+          <Text style={isUser ? styles.textUser : styles.textBot}>{item.text}</Text>
+        </View>
       </View>
-    </View>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <FlatList ref={listRef} data={messages.slice().reverse()} keyExtractor={(_, i) => String(i)} renderItem={renderItem} style={styles.list} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="always" inverted />
+
+      <View style={styles.inputRow}>
+        <TextInput ref={inputRef} value={input} onChangeText={setInput} placeholder="Ask about meds, schedules, reports…" style={styles.input} returnKeyType="send" onSubmitEditing={sendMessage} editable={!sending} multiline />
+        <TouchableOpacity onPress={sendMessage} disabled={!input.trim() || sending} style={[styles.sendBtn, (!input.trim() || sending) && styles.sendBtnDisabled]}>
+          {sending ? <ActivityIndicator color="#fff" /> : <Text style={styles.sendBtnText}>Send</Text>}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#fff" },
+  list: { flex: 1, paddingHorizontal: 14, paddingTop: 10 },
+  listContent: { paddingBottom: 12, flexGrow: 1, justifyContent: "flex-end" },
+  row: { marginVertical: 6 },
+  rowUser: { alignSelf: "flex-end" },
+  rowBot: { alignSelf: "flex-start" },
+  bubble: { padding: 10, borderRadius: 12, maxWidth: "82%" },
+  bubbleUser: { backgroundColor: GREEN },
+  bubbleBot: { backgroundColor: "#F3F4F6" },
+  textUser: { color: "#fff" },
+  textBot: { color: "#111827" },
+  inputRow: { flexDirection: "row", alignItems: "flex-end", padding: 12, borderTopWidth: 1, borderColor: "#eee" },
+  input: { flex: 1, minHeight: 44, maxHeight: 140, borderRadius: 8, borderWidth: 1, borderColor: "#E5E7EB", paddingHorizontal: 12, paddingVertical: 8, marginRight: 8, backgroundColor: "#fff" },
+  sendBtn: { backgroundColor: GREEN, paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8 },
+  sendBtnDisabled: { opacity: 0.55 },
+  sendBtnText: { color: "#fff", fontWeight: "600" },
+});

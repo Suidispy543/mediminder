@@ -2,7 +2,7 @@
 export async function askGemini(question: string): Promise<string> {
   try {
     const url =
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyCB3mDrc0T302iqZcgnCQxzLXIpj06U6t8";
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=AIzaSyBjkHUEkpt3jbBrgoGEeYuqfbngJNXwnlQ";
 
     const res = await fetch(url, {
       method: "POST",

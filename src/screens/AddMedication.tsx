@@ -42,6 +42,7 @@ function uniq<T>(arr: T[], key: (x: T) => string) {
 export default function AddMedication({ navigation }: { navigation?: any }) {
   const insets = useSafeAreaInsets();
 
+  const [patientName, setPatientName] = useState("");
   const [name, setName] = useState("");
   const [dates, setDates] = useState<Date[]>([]);
   const [times, setTimes] = useState<Date[]>([]);
@@ -77,7 +78,7 @@ export default function AddMedication({ navigation }: { navigation?: any }) {
   };
 
   const onSave = async () => {
-    if (!name.trim() || sortedDates.length === 0 || sortedTimes.length === 0) {
+    if (!patientName.trim() || !name.trim() || sortedDates.length === 0 || sortedTimes.length === 0) {
       console.log("[AddMedication] cannot save — missing fields");
       return;
     }
@@ -101,7 +102,9 @@ export default function AddMedication({ navigation }: { navigation?: any }) {
     await appendDoses(newDoses);
 
     // 2) ✨ schedule notifications for these doses
-    await scheduleMany(newDoses, med.name);
+    // Include patient name in the notification title/body by combining with med.name
+    const notificationTitlePrefix = patientName.trim() ? `${patientName.trim()} — ${med.name}` : med.name;
+    await scheduleMany(newDoses, notificationTitlePrefix);
 
     console.log("[AddMedication] saved & scheduled:", med, newDoses);
     navigation?.goBack?.();
@@ -110,7 +113,7 @@ export default function AddMedication({ navigation }: { navigation?: any }) {
   const onReset = async () => { await resetAll(); console.log("[AddMedication] storage reset"); };
   const onSeed  = async () => { await seedSample(); console.log("[AddMedication] storage seeded"); };
 
-  const canSave = name.trim().length > 0 && sortedDates.length > 0 && sortedTimes.length > 0;
+  const canSave = patientName.trim().length > 0 && name.trim().length > 0 && sortedDates.length > 0 && sortedTimes.length > 0;
 
   const textColor = (tw.color("text") as string) || "#111827";
   const chipText  = (tw.color("brandDark") as string) || "#0f172a";
@@ -145,6 +148,28 @@ export default function AddMedication({ navigation }: { navigation?: any }) {
               <Text variant="titleMedium" style={[tw`mb-2`, { color: textColor }]}>
                 Add Medication
               </Text>
+
+              {/* Patient name (NEW) */}
+              <Text variant="titleSmall" style={{ color: textColor, opacity: 0.8, marginBottom: 4 }}>
+                Patient name
+              </Text>
+              <TextInput
+                label="Patient name"
+                value={patientName}
+                onChangeText={setPatientName}
+                autoCapitalize="words"
+                style={tw`mb-3`}
+                mode="outlined"
+                outlineStyle={{ borderColor: borderCol }}
+                theme={{
+                  colors: {
+                    primary: (tw.color("brand") as string) || "#2563eb",
+                    outline: borderCol,
+                    onSurface: textColor,
+                    onSurfaceVariant: textColor,
+                  },
+                }}
+              />
 
               <TextInput
                 label="Medication name"
