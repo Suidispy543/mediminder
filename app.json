@@ -14,12 +14,17 @@
     "updates": {
       "fallbackToCacheTimeout": 0
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.yourcompany.mediminder",
       "infoPlist": {
-        "UIBackgroundModes": ["remote-notification", "fetch"]
+        "UIBackgroundModes": [
+          "remote-notification",
+          "fetch"
+        ]
       }
     },
     "android": {
@@ -45,9 +50,14 @@
         "expo-notifications",
         {
           "icon": "./assets/notification-icon.png",
-          "color": "#2563EB"
+          "color": "#2563EB",
+          "sounds": [
+            "./assets/sounds/sound1.wav",
+            "./assets/sounds/sound2.wav"
+          ]
         }
-      ]
+      ],
+      "expo-router"
     ],
     "extra": {
       "EXPO_PUBLIC_GEMINI_API_KEY": "AIzaSyBjkHUEkpt3jbBrgoGEeYuqfbngJNXwnlQ",

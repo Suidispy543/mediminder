@@ -1,12 +1,23 @@
 // src/screens/ChatScreen.tsx
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView, FlatList, View, Text, TextInput, TouchableOpacity, StyleSheet, Keyboard, KeyboardAvoidingView, Platform } from "react-native";
+import {
+  SafeAreaView,
+  FlatList,
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Keyboard,
+  KeyboardAvoidingView,
+  Platform,
+} from "react-native";
 import { askChatbot } from "../lib/chatService";
 
 type Msg = { id: string; from: "user" | "bot"; text: string };
 const GREEN = "#10B981";
 
-export default function ChatScreen(): JSX.Element {
+export default function ChatScreen() {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -59,12 +70,40 @@ export default function ChatScreen(): JSX.Element {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined} keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}>
-        <FlatList ref={listRef} data={messages.slice().reverse()} keyExtractor={(m) => m.id} renderItem={renderItem} inverted style={styles.flatList} contentContainerStyle={styles.listContent} keyboardShouldPersistTaps="always" />
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+      >
+        <FlatList
+          ref={listRef}
+          data={messages.slice().reverse()}
+          keyExtractor={(m) => m.id}
+          renderItem={renderItem}
+          inverted
+          style={styles.flatList}
+          contentContainerStyle={styles.listContent}
+          keyboardShouldPersistTaps="always"
+        />
 
         <View style={styles.inputRow}>
-          <TextInput ref={inputRef} value={input} onChangeText={setInput} placeholder="Ask me something..." style={styles.input} multiline blurOnSubmit={false} returnKeyType="send" onSubmitEditing={send} editable={!loading} />
-          <TouchableOpacity style={[styles.sendBtn, loading || !input.trim() ? styles.sendBtnDisabled : null]} onPress={send} disabled={loading || !input.trim()}>
+          <TextInput
+            ref={inputRef}
+            value={input}
+            onChangeText={setInput}
+            placeholder="Ask me something..."
+            style={styles.input}
+            multiline
+            blurOnSubmit={false}
+            returnKeyType="send"
+            onSubmitEditing={send}
+            editable={!loading}
+          />
+          <TouchableOpacity
+            style={[styles.sendBtn, loading || !input.trim() ? styles.sendBtnDisabled : null]}
+            onPress={send}
+            disabled={loading || !input.trim()}
+          >
             <Text style={styles.sendBtnText}>{loading ? "..." : "Send"}</Text>
           </TouchableOpacity>
         </View>

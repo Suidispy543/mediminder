@@ -28,26 +28,33 @@ export default function CameraScreen() {
   const extractImageUri = useCallback((res: any): string | null => {
     console.log("[CameraScreen] raw camera response:", res);
     if (!res) return null;
+    // string uri
     if (typeof res === "string") return res;
+    // older shapes
     if (typeof res.uri === "string") return res.uri;
+    // expo-image-picker / camera shape: { canceled: boolean, assets: [{ uri }] }
     if (res.assets && Array.isArray(res.assets) && res.assets[0] && typeof res.assets[0].uri === "string") {
       return res.assets[0].uri;
     }
+    // some libs use localUri
     if (typeof res.localUri === "string") return res.localUri;
     return null;
   }, []);
 
-  const handleUploaded = useCallback((res: any) => {
-    console.log("[CameraScreen] onUploaded called:", res);
-    const uri = extractImageUri(res);
-    if (!uri) {
-      console.warn("[CameraScreen] could not extract image uri from camera response:", res);
-      Alert.alert("Capture failed", "Could not retrieve the captured image. Please try again.");
-      return;
-    }
-    console.log("[CameraScreen] extracted uri:", uri);
-    setImageUri(uri);
-  }, [extractImageUri]);
+  const handleUploaded = useCallback(
+    (res: any) => {
+      console.log("[CameraScreen] onUploaded called:", res);
+      const uri = extractImageUri(res);
+      if (!uri) {
+        console.warn("[CameraScreen] could not extract image uri from camera response:", res);
+        Alert.alert("Capture failed", "Could not retrieve the captured image. Please try again.");
+        return;
+      }
+      console.log("[CameraScreen] extracted uri:", uri);
+      setImageUri(uri);
+    },
+    [extractImageUri]
+  );
 
   // pick an image from gallery (reliable for dev testing)
   const pickFromGallery = useCallback(async () => {
@@ -57,10 +64,35 @@ export default function CameraScreen() {
         Alert.alert("Permission required", "Need gallery permission to pick a test image.");
         return;
       }
-      const res = await ImagePicker.launchImageLibraryAsync({ quality: 0.8, base64: false });
+
+      const res = await ImagePicker.launchImageLibraryAsync({
+        quality: 0.8,
+        base64: false,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      });
+
       console.log("[CameraScreen] gallery pick result:", res);
-      if (!res.cancelled && res.uri) {
-        setImageUri(res.uri);
+
+      // modern expo-image-picker returns { canceled: boolean, assets: [{ uri, ... }] }
+      if ("canceled" in res) {
+        if (res.canceled) {
+          // user cancelled - nothing to do
+          return;
+        }
+        const uri = res.assets && res.assets[0] && res.assets[0].uri;
+        if (uri) {
+          setImageUri(uri);
+        } else {
+          console.warn("[CameraScreen] gallery picked but no uri:", res);
+          Alert.alert("Pick failed", "Could not get image URI from gallery result.");
+        }
+        return;
+      }
+
+      // fallback for older shape (deprecated)
+      // @ts-expect-error legacy typing
+      if (!res.cancelled && (res as any).uri) {
+        setImageUri((res as any).uri);
       }
     } catch (err: any) {
       console.error("Gallery pick failed:", err);
