@@ -12,6 +12,8 @@
  * Notes:
  * - Hugging Face free tier is limited. Use a small model (e.g., "google/flan-t5-small") for low-cost fallback.
  * - This fallback is intended for dev/testing and small user volumes only.
+ *
+ * Changes: added detection for meta/empty "model" responses and automatic retry with larger token budget.
  */
 
 import { generateText } from "./geminiClient";
@@ -89,10 +91,22 @@ function looksLikeQuotaError(msg: string): boolean {
   );
 }
 
+/** Heuristic to detect meta/empty responses */
+function isMetaOrEmptyResponse(s: string | null | undefined): boolean {
+  if (!s) return true;
+  const t = String(s).trim().toLowerCase();
+  if (t.length === 0) return true;
+  if (t === "model") return true;
+  // too short to be a meaningful reply
+  if (t.length <= 3) return true;
+  return false;
+}
+
 /**
  * askChatbot - primary wrapper used by UI
  * - tries Gemini first
  * - on suspected quota/billing error, automatically tries HF fallback
+ * - retries with larger token budget if Gemini returns meta/empty response
  */
 export async function askChatbot(prompt: string): Promise<string> {
   const q = (prompt || "").trim();
@@ -112,17 +126,36 @@ export async function askChatbot(prompt: string): Promise<string> {
 
   // First: try Gemini
   try {
-    // conservative defaults: small tokens, low temperature; callers can call generateText directly if needed
-    const geminiResp = await generateText(q, { maxOutputTokens: 64, temperature: 0.2, retries: 1 });
-    const text = String(geminiResp ?? "");
+    // conservative defaults: moderate tokens, low temperature
+    let geminiResp = await generateText(q, { maxOutputTokens: 300, temperature: 0.2, retries: 1 });
+
+    // If Gemini returned an empty/meta response (e.g., "model"), retry once with larger budget
+    if (isMetaOrEmptyResponse(geminiResp)) {
+      console.warn("[chatService] Gemini returned empty/meta response — retrying with larger token budget (512).");
+      try {
+        geminiResp = await generateText(q, { maxOutputTokens: 512, temperature: 0.2, retries: 0 });
+      } catch (retryErr) {
+        console.warn("[chatService] Retry with larger token budget failed:", retryErr?.message ?? retryErr);
+        // we'll fall through and either use the original geminiResp (possibly meta) or go to HF fallback via catch
+      }
+    }
+
+    const text = String(geminiResp ?? "").trim();
+
+    // If still meta/empty, treat as an error to trigger HF fallback or bubble up
+    if (isMetaOrEmptyResponse(text)) {
+      // Throw an error so the outer catch can decide to fallback to HF if appropriate
+      throw new Error("Gemini returned empty or metadata-only response after retry.");
+    }
+
     CACHE[cacheKey] = { text, ts: Date.now() };
     return text;
   } catch (err: any) {
     const msg = err?.message ?? String(err ?? "");
-    console.warn("[chatService] Gemini error:", msg);
+    console.warn("[chatService] Gemini error or empty response:", msg);
 
     // If it's clearly a quota/billing error (or we can't reach API), attempt HF fallback
-    if (looksLikeQuotaError(msg) || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("timeout")) {
+    if (looksLikeQuotaError(msg) || msg.toLowerCase().includes("network") || msg.toLowerCase().includes("timeout") || msg.toLowerCase().includes("empty or metadata-only")) {
       try {
         console.log("[chatService] Attempting Hugging Face fallback...");
         const hfText = await callHuggingFace(q);

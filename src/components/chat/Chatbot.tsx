@@ -10,7 +10,7 @@ export default function Chatbot() {
   const [messages, setMessages] = useState<Msg[]>([
     {
       role: "assistant",
-      text: "Hi! I’m MediChat. Ask me about medicines, schedules, or general health guidance.",
+      text: "Hello! I'm Baymax,your personal healthcare companion. How can I patch you up today?",
     },
   ]);
   const [input, setInput] = useState("");

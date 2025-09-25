@@ -8,7 +8,7 @@ type Msg = { role: "user" | "assistant"; text: string };
 const GREEN = "#10B981";
 
 export default function ChatScreen() {
-  const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", text: "Hi! Ask about meds, schedules, or reports." }]);
+  const [messages, setMessages] = useState<Msg[]>([{ role: "assistant", text: "Hello! I am Baymax, your personal healthcare companion. How can I patch you up today?" }]);
   const [input, setInput] = useState<string>("");
   const [sending, setSending] = useState<boolean>(false);
 

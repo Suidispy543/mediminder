@@ -1,3 +1,4 @@
+cat > src/lib/geminiClient.ts <<'TS'
 /**
  * Gemini client (cheaper default model + conservative defaults).
  *
@@ -201,3 +202,4 @@ export async function generateText(prompt: string, opts?: any): Promise<string> 
 
   throw lastErr ?? new Error("Unknown Gemini client error");
 }
+TS
