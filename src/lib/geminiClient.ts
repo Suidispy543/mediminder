@@ -29,7 +29,7 @@ if (!API_KEY) {
 
 // default to cheaper model to reduce cost
 let MODEL: string =
-  (expoExtra as any)?.EXPO_GEMINI_MODEL ?? process.env.EXPO_GEMINI_MODEL ?? "models/gemini-1.5-flash-8b";
+  (expoExtra as any)?.EXPO_GEMINI_MODEL ?? process.env.EXPO_GEMINI_MODEL ?? "models/gemini-2.0-flash";
 
 export function setModel(name: string) {
   MODEL = name;
