@@ -30,7 +30,9 @@
           "whatsapp-beta"
         ],
         "NSMicrophoneUsageDescription": "Microphone access is required to record voice for chat input and speech-to-text.",
-        "NSSpeechRecognitionUsageDescription": "Speech recognition is used to convert your spoken words into text for the chat."
+        "NSSpeechRecognitionUsageDescription": "Speech recognition is used to convert your spoken words into text for the chat.",
+        "NSCameraUsageDescription": "We need to use the camera to capture prescriptions.",
+        "NSPhotoLibraryUsageDescription": "We need access to save and upload prescription images."
       }
     },
     "android": {
@@ -46,7 +48,10 @@
         "RECEIVE_BOOT_COMPLETED",
         "WAKE_LOCK",
         "SCHEDULE_EXACT_ALARM",
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "CAMERA", 
+        "WRITE_EXTERNAL_STORAGE", 
+        "READ_EXTERNAL_STORAGE"
       ]
     },
     "web": {

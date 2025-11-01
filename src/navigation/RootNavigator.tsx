@@ -1,100 +1,150 @@
+// src/navigation/RootNavigator.tsx
 import React from "react";
-import { Alert, TouchableOpacity } from "react-native";
+import { TouchableOpacity } from "react-native";
 import { NavigationContainer } from "@react-navigation/native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
-import * as ImagePicker from "expo-image-picker";
+
+import CameraUploadScreen from "../screens/CameraUploadScreen";
+import PrescriptionReview from "../screens/PrescriptionReview";
 
 import Today from "../screens/Today";
 import AddMedication from "../screens/AddMedication";
-import History from "../screens/History"; // ⬅️ add this import
+import History from "../screens/History";
 
-const Tab = createBottomTabNavigator();
+const Tab = createBottomTabNavigator<any>(); // keep loose to avoid extra typing work
+const Stack = createNativeStackNavigator<RootStackParamList>(); // <-- typed stack
 
+/**
+ * Exported type so screens can import the stack param list
+ */
+export type RootStackParamList = {
+  MainTabs: undefined;
+  CameraUpload: undefined;
+  PrescriptionReview: { parsed: any; imageUri: string } | undefined;
+  // add other stack routes here if needed
+};
+
+/**
+ * Bottom tabs: Today, Camera, Add, History
+ */
+function MainTabs({ navigation }: any) {
+  return (
+    <Tab.Navigator
+      screenOptions={{
+        headerShown: false,
+        tabBarShowLabel: true,
+      }}
+    >
+      <Tab.Screen
+        name="Today"
+        component={Today}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="calendar-today"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      {/* Middle Camera tab */}
+      <Tab.Screen
+        name="Camera"
+        component={Today} // dummy placeholder (we intercept press)
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="camera" color={color} size={size} />
+          ),
+          // Use a custom tabBarButton to intercept press and open CameraUpload stack screen
+          tabBarButton: (props: any) => {
+            // Destructure relevant props to forward styling/children and preserve accessibility
+            const { accessibilityState, children, style, onLongPress, ...rest } = props;
+            return (
+              <TouchableOpacity
+                {...rest}
+                accessibilityState={accessibilityState}
+                style={style}
+                activeOpacity={0.8}
+                // Use the navigation prop from the MainTabs scope to navigate to the stack screen
+                onPress={() => navigation.navigate("CameraUpload")}
+                onLongPress={onLongPress ? onLongPress : undefined}
+              >
+                {children}
+              </TouchableOpacity>
+            );
+          },
+        }}
+        listeners={{
+          tabPress: (e) => {
+            // prevent default switching to dummy tab
+            e.preventDefault();
+          },
+        }}
+      />
+
+      <Tab.Screen
+        name="Add"
+        component={AddMedication}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="plus-circle-outline"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+
+      <Tab.Screen
+        name="History"
+        component={History}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="history"
+              color={color}
+              size={size}
+            />
+          ),
+        }}
+      />
+    </Tab.Navigator>
+  );
+}
+
+/**
+ * Root stack: holds MainTabs and new camera flow screens
+ */
 export default function RootNavigator() {
-  const handleCameraPress = React.useCallback(async () => {
-    try {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert("Permission needed", "Camera permission is required to take photos.");
-        return;
-      }
-      const result = await ImagePicker.launchCameraAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false,
-        quality: 0.8,
-      });
-      if (result.canceled) return;
-      const asset = result.assets?.[0];
-      if (!asset?.uri) return;
-      console.log("[camera] captured:", asset.uri);
-      // upload if you want…
-    } catch (e: any) {
-      Alert.alert("Camera Error", e?.message ?? "Failed to open camera");
-    }
-  }, []);
-
   return (
     <NavigationContainer>
-      <Tab.Navigator
-        screenOptions={{
-          headerShown: false,
-          tabBarShowLabel: true,
-        }}
-      >
-        <Tab.Screen
-          name="Today"
-          component={Today}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="calendar-today" color={color} size={size} />
-            ),
-          }}
+      <Stack.Navigator>
+        {/* Your main bottom tabs */}
+        <Stack.Screen
+          name="MainTabs"
+          component={MainTabs}
+          options={{ headerShown: false }}
         />
 
-        {/* Middle Camera tab that opens camera directly */}
-        <Tab.Screen
-          name="Camera"
-          component={Today} // dummy, won't show because we override button
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="camera" color={color} size={size} />
-            ),
-            tabBarButton: (props) => (
-              <TouchableOpacity
-                {...props}
-                activeOpacity={0.8}
-                onPress={handleCameraPress}
-                onLongPress={props.onLongPress}
-              />
-            ),
-          }}
-          listeners={{
-            tabPress: (e) => e.preventDefault(),
-          }}
+        {/* New Camera upload screen */}
+        <Stack.Screen
+          name="CameraUpload"
+          component={CameraUploadScreen}
+          options={{ title: "Scan Prescription" }}
         />
 
-        <Tab.Screen
-          name="Add"
-          component={AddMedication}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="plus-circle-outline" color={color} size={size} />
-            ),
-          }}
+        {/* New Prescription review screen */}
+        <Stack.Screen
+          name="PrescriptionReview"
+          component={PrescriptionReview}
+          options={{ title: "Review & Confirm" }}
         />
-
-        {/* ⬇️ NEW: History tab */}
-        <Tab.Screen
-          name="History"
-          component={History}
-          options={{
-            tabBarIcon: ({ color, size }) => (
-              <MaterialCommunityIcons name="history" color={color} size={size} />
-            ),
-          }}
-        />
-      </Tab.Navigator>
+      </Stack.Navigator>
     </NavigationContainer>
   );
 }

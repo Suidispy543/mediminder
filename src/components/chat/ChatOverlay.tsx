@@ -26,7 +26,6 @@ type Msg = { id: string; role: "user" | "assistant"; content: string };
 const GREEN = "#10B981";
 const WELCOME_MESSAGE =
   "Hello! I'm Baymax, your personal healthcare companion. How can I patch you up today?";
-// Make sure this path is correct in your project
 const WELCOME_AUDIO = require("../../../assets/sounds/baymax_welcome.wav");
 
 const TYPING_ID = "__typing__";
@@ -40,23 +39,27 @@ export default function ChatOverlay() {
   const listRef = useRef<FlatList<Msg> | null>(null);
   const inputRef = useRef<RNTextInput | null>(null);
 
-  // audio & progressive reveal state
   const soundRef = useRef<Audio.Sound | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [welcomeMsgId, setWelcomeMsgId] = useState<string | null>(null);
   const [currentWordIndex, setCurrentWordIndex] = useState(-1);
-  const [wordTimestamps, setWordTimestamps] = useState<number[] | null>(null);
   const wordsRef = useRef<string[]>([]);
 
   // typing animation
-  const dotAnims = useRef([new Animated.Value(0.3), new Animated.Value(0.3), new Animated.Value(0.3)]).current;
+  const dotAnims = useRef([
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+    new Animated.Value(0.3),
+  ]).current;
   const typingLoopRef = useRef<Animated.CompositeAnimation | null>(null);
 
   function push(role: Msg["role"], content: string) {
-    setMessages((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, role, content }]);
+    setMessages((prev) => [
+      ...prev,
+      { id: `${Date.now()}-${Math.random()}`, role, content },
+    ]);
   }
 
-  // manage typing placeholder
   useEffect(() => {
     if (loading) {
       setMessages((prev) => {
@@ -72,8 +75,18 @@ export default function ChatOverlay() {
     if (typingLoopRef.current) return;
     const seq = dotAnims.map((anim) =>
       Animated.sequence([
-        Animated.timing(anim, { toValue: 1, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-        Animated.timing(anim, { toValue: 0.3, duration: 400, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0.3,
+          duration: 400,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
       ])
     );
     typingLoopRef.current = Animated.loop(Animated.stagger(140, seq));
@@ -93,7 +106,6 @@ export default function ChatOverlay() {
     else stopTypingAnim();
   }, [loading]);
 
-  // send message handler
   async function onSend() {
     const q = input.trim();
     if (!q || loading) return;
@@ -102,7 +114,10 @@ export default function ChatOverlay() {
     setLoading(true);
     Keyboard.dismiss();
 
-    setTimeout(() => listRef.current?.scrollToOffset?.({ offset: 0, animated: true }), 120);
+    setTimeout(
+      () => listRef.current?.scrollToOffset?.({ offset: 0, animated: true }),
+      120
+    );
 
     try {
       const answer = await askChatbot(q);
@@ -118,7 +133,6 @@ export default function ChatOverlay() {
     }
   }
 
-  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (tickRef.current) {
@@ -130,7 +144,6 @@ export default function ChatOverlay() {
     };
   }, []);
 
-  // audio helpers
   async function stopAndUnloadSound() {
     try {
       if (soundRef.current) {
@@ -143,121 +156,89 @@ export default function ChatOverlay() {
     }
   }
 
-  /**
-   * startWelcomeOnce()
-   * - adds welcome message to chat
-   * - loads audio and tries to compute per-word timestamps from duration
-   * - starts an interval that reads positionMillis and advances currentWordIndex
-   */
+  // ✅ Updated smoother version
   async function startWelcomeOnce() {
+    const SYNC_FACTOR = 0.82; // slows text sync a bit
+    const START_DELAY = 400; // ms delay before starting
     const id = `${Date.now()}-welcome`;
     setWelcomeMsgId(id);
-    setMessages((prev) => [...prev, { id, role: "assistant", content: WELCOME_MESSAGE }]);
+    setMessages((prev) => [
+      ...prev,
+      { id, role: "assistant", content: WELCOME_MESSAGE },
+    ]);
 
     const words = WELCOME_MESSAGE.split(/\s+/).filter(Boolean);
     wordsRef.current = words;
     setCurrentWordIndex(-1);
-    setWordTimestamps(null);
 
-    // Attempt to load and inspect audio duration to compute timestamps
-    try {
-      await stopAndUnloadSound();
-      const { sound } = await Audio.Sound.createAsync(WELCOME_AUDIO, { shouldPlay: false });
-      soundRef.current = sound;
-
-      // get status
-      const statusAny = (await sound.getStatusAsync()) as any;
-      let durationMs = statusAny?.durationMillis ?? 0;
-
-      // If duration not available, play briefly to populate metadata (some platforms)
-      if (!durationMs || durationMs <= 0) {
-        try {
-          await sound.playAsync();
-          const st2 = (await sound.getStatusAsync()) as any;
-          durationMs = st2?.durationMillis ?? durationMs;
-          await sound.pauseAsync().catch(() => {});
-          await sound.setPositionAsync(0).catch(() => {});
-        } catch {
-          // ignore
-        }
-      }
-
-      // compute approximate timestamps if we have duration
-      if (durationMs && durationMs > 0) {
-        const spacing = Math.max(50, Math.floor(durationMs / Math.max(words.length, 1)));
-        const ts = words.map((_, i) => Math.round(i * spacing));
-        setWordTimestamps(ts);
-      }
-    } catch (e) {
-      // audio load failed — we'll use fallback cadence
-      setWordTimestamps(null);
-    }
-
-    // Clear previous tick if any
     if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
 
-    // Start playback and interval tick
+    await stopAndUnloadSound();
+
     try {
-      // start playback (non-blocking)
-      if (soundRef.current) {
-        try {
-          await soundRef.current.setPositionAsync(0).catch(() => {});
-        } catch {}
-        await soundRef.current.playAsync().catch(() => {});
+      const { sound } = await Audio.Sound.createAsync(WELCOME_AUDIO, {
+        shouldPlay: false,
+      });
+      soundRef.current = sound;
+
+      let status: any = await sound.getStatusAsync();
+      let duration = status?.durationMillis ?? 0;
+
+      if (!duration || duration <= 0) {
+        await sound.playAsync();
+        await new Promise((r) => setTimeout(r, 200));
+        const st2 = (await sound.getStatusAsync()) as any;
+        duration = st2?.durationMillis ?? duration;
+        await sound.stopAsync();
+        await sound.setPositionAsync(0);
       }
-    } catch {
-      // ignore playback errors; we still reveal by cadence
+
+      await sound.playAsync();
+
+      const startTime = Date.now();
+
+      tickRef.current = setInterval(async () => {
+        if (!soundRef.current) return;
+
+        const st = (await soundRef.current.getStatusAsync()) as any;
+        if (!st?.isLoaded) return;
+
+        const { positionMillis, durationMillis, didJustFinish } = st;
+        if (!durationMillis || durationMillis <= 0) return;
+
+        const elapsed = Date.now() - startTime - START_DELAY;
+        const progress = Math.max(0, (elapsed / durationMillis) * SYNC_FACTOR);
+        const idx = Math.floor(progress * wordsRef.current.length);
+
+        setCurrentWordIndex(Math.min(idx, wordsRef.current.length - 1));
+
+        if (didJustFinish || idx >= wordsRef.current.length - 1) {
+          clearInterval(tickRef.current!);
+          tickRef.current = null;
+        }
+      }, 100);
+    } catch (err) {
+      console.warn("Audio sync fallback:", err);
+      const fallbackCadence = 160;
+      const start = Date.now();
+      tickRef.current = setInterval(() => {
+        const elapsed = Date.now() - start;
+        const idx = Math.min(
+          words.length - 1,
+          Math.floor(elapsed / fallbackCadence)
+        );
+        setCurrentWordIndex(idx);
+        if (idx >= words.length - 1) {
+          clearInterval(tickRef.current!);
+          tickRef.current = null;
+        }
+      }, 80);
     }
-
-    const fallbackCadence = 140; // ms per word
-    const startTs = Date.now();
-
-    tickRef.current = setInterval(async () => {
-      try {
-        let elapsed = Date.now() - startTs;
-
-        if (soundRef.current) {
-          const st = (await soundRef.current.getStatusAsync()) as any;
-          if (st && typeof st.positionMillis === "number") elapsed = st.positionMillis;
-        }
-
-        if (wordTimestamps && wordTimestamps.length === wordsRef.current.length) {
-          let idx = 0;
-          for (let i = 0; i < wordTimestamps.length; i++) {
-            if (elapsed >= (wordTimestamps[i] || 0)) idx = i;
-            else break;
-          }
-          setCurrentWordIndex(idx);
-          if (idx >= wordsRef.current.length - 1) {
-            // stop after small delay
-            setTimeout(() => {
-              if (tickRef.current) {
-                clearInterval(tickRef.current);
-                tickRef.current = null;
-              }
-            }, 200);
-          }
-        } else {
-          // fallback cadence
-          const idx = Math.min(wordsRef.current.length - 1, Math.floor(elapsed / fallbackCadence));
-          setCurrentWordIndex(idx);
-          if (idx >= wordsRef.current.length - 1) {
-            if (tickRef.current) {
-              clearInterval(tickRef.current);
-              tickRef.current = null;
-            }
-          }
-        }
-      } catch {
-        // swallow errors inside tick
-      }
-    }, 80);
   }
 
-  // open/close chat
   function openChat() {
     setMessages([]);
     setInput("");
@@ -269,7 +250,7 @@ export default function ChatOverlay() {
   }
 
   async function closeChat() {
-    if (tickRef.current !== null) {
+    if (tickRef.current) {
       clearInterval(tickRef.current);
       tickRef.current = null;
     }
@@ -278,26 +259,31 @@ export default function ChatOverlay() {
     setOpen(false);
     setWelcomeMsgId(null);
     setCurrentWordIndex(-1);
-    setWordTimestamps(null);
     setMessages([]);
     setInput("");
   }
 
-  // renderItem: welcome uses <Text> progressive reveal, others use Markdown
   function renderItem({ item }: { item: Msg }) {
     const isUser = item.role === "user";
 
-    // welcome progressive reveal
     if (welcomeMsgId && item.id === welcomeMsgId) {
       const words = wordsRef.current;
       return (
         <View style={[styles.row, isUser ? styles.rowUser : styles.rowBot]}>
-          <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
+          <View
+            style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}
+          >
             <Text style={styles.welcomeText}>
               {words.map((w, i) => {
                 const shown = i <= currentWordIndex;
                 return (
-                  <Text key={`${item.id}-w-${i}`} style={shown ? styles.welcomeWordShown : styles.welcomeWordHidden}>
+                  <Text
+                    key={`${item.id}-w-${i}`}
+                    style={[
+                      styles.welcomeWord,
+                      { opacity: shown ? 1 : 0.1 },
+                    ]}
+                  >
                     {w}
                     {i < words.length - 1 ? " " : ""}
                   </Text>
@@ -309,7 +295,6 @@ export default function ChatOverlay() {
       );
     }
 
-    // typing indicator
     if (item.id === TYPING_ID) {
       return (
         <View style={[styles.row, styles.rowBot]}>
@@ -344,10 +329,11 @@ export default function ChatOverlay() {
       );
     }
 
-    // normal chat message -> Markdown renderer
     return (
       <View style={[styles.row, isUser ? styles.rowUser : styles.rowBot]}>
-        <View style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}>
+        <View
+          style={[styles.bubble, isUser ? styles.bubbleUser : styles.bubbleBot]}
+        >
           <Markdown
             style={{
               body: { fontSize: 15, color: isUser ? "#fff" : "#111827" },
@@ -427,7 +413,6 @@ export default function ChatOverlay() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#ffffff" },
   container: { flex: 1 },
-
   header: {
     height: 56,
     borderBottomWidth: StyleSheet.hairlineWidth,
@@ -440,26 +425,19 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "600", color: "#111827" },
   closeBtnHeader: { padding: 8 },
   closeTextHeader: { color: "#374151" },
-
   list: { flex: 1, paddingHorizontal: 12, backgroundColor: "#FFFFFF" },
   listContent: { paddingTop: 12, paddingBottom: 12, flexGrow: 1, justifyContent: "flex-end" },
-
   row: { marginVertical: 6 },
   rowUser: { alignSelf: "flex-end" },
   rowBot: { alignSelf: "flex-start" },
-
   bubble: { padding: 12, borderRadius: 14, maxWidth: "82%" },
   bubbleUser: { backgroundColor: GREEN },
   bubbleBot: { backgroundColor: "#F3F4F6" },
-
   typingBubble: { minWidth: 56, paddingHorizontal: 12, paddingVertical: 8 },
   typingDotsRow: { flexDirection: "row", alignItems: "flex-end", justifyContent: "center" },
   typingDot: { width: 8, height: 8, borderRadius: 8, marginHorizontal: 6 },
-
   welcomeText: { fontSize: 15, lineHeight: 20 },
-  welcomeWordHidden: { color: "transparent" },
-  welcomeWordShown: { color: "#111827" },
-
+  welcomeWord: { color: "#111827", transition: "opacity 0.15s ease-in" },
   inputRow: {
     flexDirection: "row",
     alignItems: "flex-end",
@@ -491,7 +469,6 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: { opacity: 0.55 },
   sendBtnText: { color: "#fff", fontWeight: "600" },
-
   fab: {
     position: "absolute",
     right: 16,
